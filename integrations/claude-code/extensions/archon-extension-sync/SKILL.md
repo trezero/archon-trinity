@@ -163,7 +163,7 @@ manage_extensions(action="validate", extension_content="<local content>")
 ```
 If validation passes:
 ```
-manage_extensions(action="upload", extension_content="<local content>", extension_name="<new-name>")
+manage_extensions(action="upload", extension_content="<local content>", extension_name="<new-name>", project_id="<archon_project_id>")
 ```
 
 **If Discard Changes:**
@@ -186,8 +186,9 @@ manage_extensions(action="validate", extension_content="<content>")
 ```
 If validation passes (or user accepts warnings):
 ```
-manage_extensions(action="upload", extension_content="<content>")
+manage_extensions(action="upload", extension_content="<content>", project_id="<archon_project_id>")
 ```
+This scopes the extension to the current project so it is not distributed to other projects.
 If validation has errors, show them and ask user to fix.
 
 ### 3e. Update slash commands

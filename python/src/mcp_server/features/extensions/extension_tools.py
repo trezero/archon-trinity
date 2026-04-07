@@ -235,7 +235,7 @@ def register_extension_tools(mcp: FastMCP):
                     return await _handle_validate(client, api_url, extension_content)
 
                 elif action == "upload":
-                    return await _handle_upload(client, api_url, extension_content, extension_name)
+                    return await _handle_upload(client, api_url, extension_content, extension_name, project_id)
 
                 elif action == "sync":
                     return await _handle_sync(
@@ -286,9 +286,18 @@ async def _handle_validate(client: httpx.AsyncClient, api_url: str, extension_co
 
 
 async def _handle_upload(
-    client: httpx.AsyncClient, api_url: str, extension_content: str | None, extension_name: str | None
+    client: httpx.AsyncClient,
+    api_url: str,
+    extension_content: str | None,
+    extension_name: str | None,
+    project_id: str | None = None,
 ) -> str:
-    """Upload or update an extension from content."""
+    """Upload or update an extension from content.
+
+    When project_id is provided, the extension is scoped to that project
+    (skill_group = project_id). Without a project_id the extension is
+    created as a template shared with all projects.
+    """
     if not extension_content:
         return MCPErrorFormatter.format_error(
             "validation_error",
@@ -306,12 +315,14 @@ async def _handle_upload(
 
     description = metadata.get("description", "")
 
-    create_payload = {
+    create_payload: dict = {
         "name": name,
         "description": description,
         "content": extension_content,
         "created_by": "mcp-upload",
     }
+    if project_id:
+        create_payload["skill_groups"] = [project_id]
 
     # Try to create
     response = await client.post(urljoin(api_url, "/api/extensions"), json=create_payload)
@@ -522,7 +533,9 @@ async def _handle_bootstrap(
     """Register the system and return extension metadata (content delivered via HTTP tarball)."""
     # Fetch extensions without content — content is downloaded separately via
     # /archon-setup/extensions.tar.gz to avoid bloating the LLM context window.
-    response = await client.get(urljoin(api_url, "/api/extensions"), params={"include_content": False})
+    # Only fetch template extensions; project-scoped ones are added during sync.
+    params: dict = {"include_content": False, "skill_group": "template"}
+    response = await client.get(urljoin(api_url, "/api/extensions"), params=params)
 
     if response.status_code != 200:
         return MCPErrorFormatter.from_http_error(response, "fetch extensions for bootstrap")

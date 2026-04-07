@@ -37,6 +37,7 @@ class ExtensionService:
         description: str,
         content: str,
         created_by: str,
+        skill_groups: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a new extension and save version 1.
 
@@ -45,6 +46,9 @@ class ExtensionService:
             description: Human-readable description.
             content: Full SKILL.md content.
             created_by: Identifier of the user or agent creating the extension.
+            skill_groups: Visibility scope list. ``["template"]`` (default) means
+                shared with all projects; a list of project UUIDs scopes the
+                extension to those projects only.
 
         Returns:
             The created extension row as a dict.
@@ -52,6 +56,8 @@ class ExtensionService:
         Raises:
             RuntimeError: If the database insert returns no data.
         """
+        if skill_groups is None:
+            skill_groups = ["template"]
         content_hash = self.compute_content_hash(content)
         now = datetime.now(UTC).isoformat()
 
@@ -62,6 +68,7 @@ class ExtensionService:
             "content": content,
             "content_hash": content_hash,
             "current_version": 1,
+            "skill_groups": skill_groups,
             "created_by": created_by,
             "created_at": now,
             "updated_at": now,
@@ -86,27 +93,66 @@ class ExtensionService:
 
         return extension
 
-    def list_extensions(self) -> list[dict[str, Any]]:
-        """List all extensions without the full content field.
+    def list_extensions(self, skill_group: str | None = None) -> list[dict[str, Any]]:
+        """List extensions without the full content field.
+
+        Args:
+            skill_group: Filter to extensions whose ``skill_groups`` array
+                contains this value. ``None`` returns all extensions.
 
         Returns:
             List of extension metadata dicts (id, name, description, version, timestamps).
         """
-        response = (
+        query = (
             self.supabase_client.table(EXTENSIONS_TABLE)
-            .select("id, name, display_name, description, current_version, content_hash, is_required, is_validated, tags, created_by, created_at, updated_at")
-            .order("name")
-            .execute()
+            .select("id, name, display_name, description, current_version, content_hash, skill_groups, is_required, is_validated, tags, created_by, created_at, updated_at")
         )
+        if skill_group is not None:
+            query = query.contains("skill_groups", [skill_group])
+        response = query.order("name").execute()
         return response.data
 
-    def list_extensions_full(self) -> list[dict[str, Any]]:
-        """List all extensions including full content (used by sync endpoint).
+    def list_extensions_full(self, skill_group: str | None = None) -> list[dict[str, Any]]:
+        """List extensions including full content.
+
+        Args:
+            skill_group: Filter to extensions whose ``skill_groups`` array
+                contains this value. ``None`` returns all extensions.
 
         Returns:
             List of full extension dicts including the content field.
         """
-        response = self.supabase_client.table(EXTENSIONS_TABLE).select("*").order("name").execute()
+        query = self.supabase_client.table(EXTENSIONS_TABLE).select("*")
+        if skill_group is not None:
+            query = query.contains("skill_groups", [skill_group])
+        response = query.order("name").execute()
+        return response.data
+
+    def list_extensions_for_project(self, project_id: str, include_content: bool = False) -> list[dict[str, Any]]:
+        """List extensions visible to a project: template extensions plus the project's own.
+
+        Uses the PostgreSQL ``&&`` (overlap) operator so an extension is returned
+        when its ``skill_groups`` array shares any element with
+        ``["template", <project_id>]``.
+
+        Args:
+            project_id: The project UUID whose scoped extensions should be included.
+            include_content: If True, return full content; otherwise metadata only.
+
+        Returns:
+            Combined list of template and project-scoped extensions.
+        """
+        select_fields = "*" if include_content else (
+            "id, name, display_name, description, current_version, content_hash, "
+            "skill_groups, is_required, is_validated, tags, created_by, created_at, updated_at"
+        )
+        response = (
+            self.supabase_client.table(EXTENSIONS_TABLE)
+            .select(select_fields)
+            .overlaps("skill_groups", ["template", project_id])
+            .order("name")
+            .execute()
+        )
         return response.data
 
     def get_extension(self, extension_id: str) -> dict[str, Any] | None:

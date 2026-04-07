@@ -199,6 +199,7 @@ class ExtensionSeedingService:
                 "content": content,
                 "content_hash": content_hash,
                 "current_version": 1,
+                "skill_groups": ["template"],
                 "type": "plugin",
                 "plugin_manifest": manifest,
                 "created_by": "archon-seeder",

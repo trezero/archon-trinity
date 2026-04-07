@@ -27,6 +27,7 @@ class CreateExtensionRequest(BaseModel):
     description: str
     content: str
     created_by: str
+    skill_groups: list[str] | None = None
 
 
 class UpdateExtensionRequest(BaseModel):
@@ -91,15 +92,15 @@ async def validate_extension_standalone(request: ValidateExtensionRequest):
 
 
 @router.get("/extensions")
-async def list_extensions(include_content: bool = Query(False)):
-    """List all extensions. Pass ?include_content=true to include full extension content."""
+async def list_extensions(include_content: bool = Query(False), skill_group: str | None = Query(None)):
+    """List extensions. Pass ?include_content=true for full content, ?skill_group=template to filter."""
     try:
-        logfire.debug(f"Listing all extensions | include_content={include_content}")
+        logfire.debug(f"Listing extensions | include_content={include_content} | skill_group={skill_group}")
         service = ExtensionService()
         if include_content:
-            extensions = service.list_extensions_full()
+            extensions = service.list_extensions_full(skill_group=skill_group)
         else:
-            extensions = service.list_extensions()
+            extensions = service.list_extensions(skill_group=skill_group)
         return {"extensions": extensions, "count": len(extensions)}
     except HTTPException:
         raise
@@ -166,6 +167,7 @@ async def create_extension(request: CreateExtensionRequest):
             description=request.description,
             content=request.content,
             created_by=request.created_by,
+            skill_groups=request.skill_groups,
         )
 
         logfire.info(f"Extension created | extension_id={extension.get('id')} | name={request.name}")
@@ -434,8 +436,8 @@ async def sync_system(project_id: str, request: SyncSystemRequest):
         # Associate system with this project
         sync_service.register_system_for_project(system_id, project_id)
 
-        # Fetch full extension registry (content needed for pending_install items)
-        archon_extensions = extension_service.list_extensions_full()
+        # Fetch extensions visible to this project: template + project-scoped
+        archon_extensions = extension_service.list_extensions_for_project(project_id, include_content=True)
 
         # Fetch existing system-project install records
         system_extensions = sync_service.get_system_extensions(system_id, project_id)
@@ -489,7 +491,7 @@ async def get_project_extensions(project_id: str):
     try:
         logfire.debug(f"Getting project extensions | project_id={project_id}")
         extension_service = ExtensionService()
-        all_extensions = extension_service.list_extensions()
+        all_extensions = extension_service.list_extensions_for_project(project_id)
 
         # Build systems with nested extension install state
         systems_with_extensions: list[dict[str, Any]] = []

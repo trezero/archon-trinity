@@ -905,7 +905,10 @@ async def http_download_extensions(request: Request):
     try:
         api_url = get_api_url()
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{api_url}/api/extensions", params={"include_content": True})
+            response = await client.get(
+                f"{api_url}/api/extensions",
+                params={"include_content": True, "skill_group": "template"},
+            )
             if response.status_code != 200:
                 return JSONResponse({"error": "failed to fetch extensions from API"}, status_code=502)
             extensions = response.json().get("extensions", [])
