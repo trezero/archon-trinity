@@ -131,9 +131,10 @@ async def lifespan(app: FastAPI):
             seeder = ExtensionSeedingService()
             counts = seeder.seed_extensions()
             plugin_counts = seeder.seed_plugins()
-            total_created = counts["created"] + plugin_counts["created"]
-            total_updated = counts["updated"] + plugin_counts["updated"]
-            total_skipped = counts["skipped"] + plugin_counts["skipped"]
+            command_counts = seeder.seed_commands()
+            total_created = counts["created"] + plugin_counts["created"] + command_counts["created"]
+            total_updated = counts["updated"] + plugin_counts["updated"] + command_counts["updated"]
+            total_skipped = counts["skipped"] + plugin_counts["skipped"] + command_counts["skipped"]
             api_logger.info(
                 f"✅ Extensions seeded: {total_created} created, "
                 f"{total_updated} updated, {total_skipped} unchanged"
