@@ -27,6 +27,9 @@ class CreateExtensionRequest(BaseModel):
     description: str
     content: str
     created_by: str
+    skill_groups: list[str] | None = None
+    type: str | None = None
+    plugin_manifest: dict | None = None
 
 
 class UpdateExtensionRequest(BaseModel):
@@ -91,15 +94,19 @@ async def validate_extension_standalone(request: ValidateExtensionRequest):
 
 
 @router.get("/extensions")
-async def list_extensions(include_content: bool = Query(False)):
+async def list_extensions(
+    include_content: bool = Query(False),
+    skill_group: str | None = Query(None),
+    type: str | None = Query(None),
+):
     """List all extensions. Pass ?include_content=true to include full extension content."""
     try:
         logfire.debug(f"Listing all extensions | include_content={include_content}")
         service = ExtensionService()
         if include_content:
-            extensions = service.list_extensions_full()
+            extensions = service.list_extensions_full(skill_group=skill_group, type=type)
         else:
-            extensions = service.list_extensions()
+            extensions = service.list_extensions(skill_group=skill_group, type=type)
         return {"extensions": extensions, "count": len(extensions)}
     except HTTPException:
         raise
@@ -150,7 +157,7 @@ async def create_extension(request: CreateExtensionRequest):
 
         # Validate content first
         validator = ExtensionValidationService()
-        validation = validator.validate(request.content)
+        validation = validator.validate(request.content, extension_type=request.type or "skill")
         if not validation["valid"]:
             raise HTTPException(
                 status_code=422,
@@ -166,6 +173,9 @@ async def create_extension(request: CreateExtensionRequest):
             description=request.description,
             content=request.content,
             created_by=request.created_by,
+            skill_groups=request.skill_groups,
+            type=request.type,
+            plugin_manifest=request.plugin_manifest,
         )
 
         logfire.info(f"Extension created | extension_id={extension.get('id')} | name={request.name}")
@@ -480,7 +490,7 @@ async def sync_system(project_id: str, request: SyncSystemRequest):
 
 
 @router.get("/projects/{project_id}/extensions")
-async def get_project_extensions(project_id: str):
+async def get_project_extensions(project_id: str, type: str | None = Query(None)):
     """Get extensions data for a project.
 
     Returns all extensions from the registry and systems with their install state,
@@ -489,7 +499,7 @@ async def get_project_extensions(project_id: str):
     try:
         logfire.debug(f"Getting project extensions | project_id={project_id}")
         extension_service = ExtensionService()
-        all_extensions = extension_service.list_extensions()
+        all_extensions = extension_service.list_extensions_for_project(project_id, type=type)
 
         # Build systems with nested extension install state
         systems_with_extensions: list[dict[str, Any]] = []
