@@ -519,3 +519,47 @@ class TestNameMismatch:
 
         assert result["valid"] is False
         assert any("mismatch" in e.lower() or "match" in e.lower() for e in result["errors"])
+
+
+# ── Command validation ────────────────────────────────────────────────────────
+
+
+class TestCommandValidation:
+    def test_command_without_frontmatter_is_valid(self):
+        """Commands should be valid even without YAML frontmatter."""
+        service = ExtensionValidationService()
+        content = "# My Command\n\nDo something useful.\n\n## Instructions\n\nStep 1..."
+        result = service.validate(content, extension_type="command")
+        assert result["valid"] is True
+        assert len(result["errors"]) == 0
+
+    def test_command_with_frontmatter_is_valid(self):
+        """Commands with frontmatter should also pass validation."""
+        service = ExtensionValidationService()
+        content = "---\nname: prime\ndescription: Prime the context\n---\n\n# Prime\n\nContent here."
+        result = service.validate(content, extension_type="command")
+        assert result["valid"] is True
+
+    def test_command_still_checks_size_limit(self):
+        """Commands should still be rejected if they exceed the size limit."""
+        service = ExtensionValidationService()
+        content = "# Huge Command\n\n" + "x" * (50 * 1024 + 1)
+        result = service.validate(content, extension_type="command")
+        assert result["valid"] is False
+        assert any("size" in e.lower() for e in result["errors"])
+
+    def test_command_still_checks_secrets(self):
+        """Commands should still be rejected if they contain secrets."""
+        service = ExtensionValidationService()
+        content = "# Setup\n\ntoken = 'sk-proj-AAAAAAAAAAAAAAAAAAAAAA'"
+        result = service.validate(content, extension_type="command")
+        assert result["valid"] is False
+        assert any("secret" in e.lower() for e in result["errors"])
+
+    def test_skill_without_frontmatter_still_fails(self):
+        """Skills (default type) should still require frontmatter."""
+        service = ExtensionValidationService()
+        content = "# No Frontmatter Skill\n\nContent."
+        result = service.validate(content)
+        assert result["valid"] is False
+        assert any("frontmatter" in e.lower() for e in result["errors"])

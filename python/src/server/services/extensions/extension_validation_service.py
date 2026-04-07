@@ -45,13 +45,20 @@ class ExtensionValidationService:
         parsed (dict): Extracted frontmatter fields and body text
     """
 
-    def validate(self, content: str, existing_name: str | None = None) -> dict[str, Any]:
+    def validate(
+        self,
+        content: str,
+        existing_name: str | None = None,
+        extension_type: str = "skill",
+    ) -> dict[str, Any]:
         """Validate extension content and return structured results.
 
         Args:
-            content: Raw SKILL.md file content.
+            content: Raw extension file content.
             existing_name: If provided, the name in frontmatter must match this value.
                            Used when updating an existing extension to prevent name changes.
+            extension_type: The type of extension being validated ("skill" or "command").
+                            Commands allow optional frontmatter; skills require it.
 
         Returns:
             Dict with keys: valid, errors, warnings, parsed.
@@ -68,30 +75,42 @@ class ExtensionValidationService:
         body = self._get_body(content)
         parsed["body"] = body
 
-        if frontmatter is None:
-            errors.append("Missing or malformed YAML frontmatter. Content must start with '---' delimiters.")
+        if extension_type == "command":
+            # Frontmatter is optional for commands — parse it if present but never error on absence
+            if frontmatter is not None:
+                name = frontmatter.get("name")
+                parsed["name"] = name
+                description = frontmatter.get("description")
+                parsed["description"] = description
+                for key, value in frontmatter.items():
+                    if key not in ("name", "description"):
+                        parsed[key] = value
         else:
-            # Extract and validate name
-            name = frontmatter.get("name")
-            parsed["name"] = name
-            self._check_name(name, errors)
+            # Skills require valid frontmatter with a name field
+            if frontmatter is None:
+                errors.append("Missing or malformed YAML frontmatter. Content must start with '---' delimiters.")
+            else:
+                # Extract and validate name
+                name = frontmatter.get("name")
+                parsed["name"] = name
+                self._check_name(name, errors)
 
-            # Check name matches existing_name when updating
-            if existing_name is not None and name and name != existing_name:
-                errors.append(
-                    f"Name mismatch: frontmatter name '{name}' does not match "
-                    f"existing extension name '{existing_name}'. Extension names cannot be changed after creation."
-                )
+                # Check name matches existing_name when updating
+                if existing_name is not None and name and name != existing_name:
+                    errors.append(
+                        f"Name mismatch: frontmatter name '{name}' does not match "
+                        f"existing extension name '{existing_name}'. Extension names cannot be changed after creation."
+                    )
 
-            # Extract and check description
-            description = frontmatter.get("description")
-            parsed["description"] = description
-            self._check_description(description, warnings)
+                # Extract and check description
+                description = frontmatter.get("description")
+                parsed["description"] = description
+                self._check_description(description, warnings)
 
-            # Pass through any extra frontmatter fields
-            for key, value in frontmatter.items():
-                if key not in ("name", "description"):
-                    parsed[key] = value
+                # Pass through any extra frontmatter fields
+                for key, value in frontmatter.items():
+                    if key not in ("name", "description"):
+                        parsed[key] = value
 
         # Content quality checks (run on body)
         self._check_content_structure(body, warnings)
