@@ -933,28 +933,66 @@ async def http_download_extensions(request: Request):
 
 
 async def http_download_commands(request: Request):
-    """Return all Claude Code slash commands as a compressed tar archive.
+    """Return all registered commands as a compressed tar archive.
 
-    Bundles every .md file from integrations/claude-code/commands/ so that
-    extension sync and /archon-setup can refresh stale command files on
-    existing machines without re-running the full setup script.
+    Fetches type='command' extensions from the registry and packages them
+    using the command_group/filename structure from plugin_manifest metadata.
+    Falls back to the static integrations/claude-code/commands/ directory
+    if the registry query fails.
     """
     import io
     import tarfile
 
+    import httpx
     from starlette.responses import Response
 
+    from src.server.config.service_discovery import get_api_url
+
+    try:
+        api_url = get_api_url()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{api_url}/api/extensions",
+                params={"include_content": "true", "type": "command", "skill_group": "template"},
+            )
+            if response.status_code == 200:
+                extensions = response.json().get("extensions", [])
+                if extensions:
+                    buf = io.BytesIO()
+                    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+                        for ext in extensions:
+                            content = ext.get("content", "")
+                            manifest = ext.get("plugin_manifest") or {}
+                            group = manifest.get("command_group")
+                            filename = manifest.get("filename") or f"{ext.get('name', 'unknown')}.md"
+
+                            if group:
+                                arcname = f"{group}/{filename}"
+                            else:
+                                arcname = filename
+
+                            data = content.encode("utf-8")
+                            info = tarfile.TarInfo(name=arcname)
+                            info.size = len(data)
+                            tar.addfile(info, io.BytesIO(data))
+                    buf.seek(0)
+                    return Response(
+                        content=buf.read(),
+                        media_type="application/gzip",
+                        headers={"Content-Disposition": 'attachment; filename="commands.tar.gz"'},
+                    )
+    except (httpx.RequestError, Exception) as e:
+        logger.warning(f"Registry-backed commands tarball failed, falling back to static: {e}")
+
+    # Fallback: serve static files from integrations/claude-code/commands/
     for parent in Path(__file__).resolve().parents:
         commands_dir = parent / "integrations" / "claude-code" / "commands"
         if commands_dir.is_dir():
-            md_files = sorted(commands_dir.glob("*.md"))
-            if not md_files:
-                return JSONResponse({"error": "no command files found"}, status_code=404)
-
             buf = io.BytesIO()
             with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-                for md_file in md_files:
-                    tar.add(md_file, arcname=md_file.name)
+                for md_file in sorted(commands_dir.rglob("*.md")):
+                    rel_path = md_file.relative_to(commands_dir)
+                    tar.add(md_file, arcname=str(rel_path))
             buf.seek(0)
             return Response(
                 content=buf.read(),
