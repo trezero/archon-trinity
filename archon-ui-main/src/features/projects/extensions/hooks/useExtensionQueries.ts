@@ -43,8 +43,11 @@ export function useInstallExtension() {
       projectId,
       extensionId,
       systemIds,
-    }: { projectId: string; extensionId: string; systemIds: string[] }) =>
-      extensionService.installExtension(projectId, extensionId, systemIds),
+    }: {
+      projectId: string;
+      extensionId: string;
+      systemIds: string[];
+    }) => extensionService.installExtension(projectId, extensionId, systemIds),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: extensionKeys.byProject(variables.projectId) });
     },
@@ -59,8 +62,11 @@ export function useRemoveExtension() {
       projectId,
       extensionId,
       systemIds,
-    }: { projectId: string; extensionId: string; systemIds: string[] }) =>
-      extensionService.removeExtension(projectId, extensionId, systemIds),
+    }: {
+      projectId: string;
+      extensionId: string;
+      systemIds: string[];
+    }) => extensionService.removeExtension(projectId, extensionId, systemIds),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: extensionKeys.byProject(variables.projectId) });
     },

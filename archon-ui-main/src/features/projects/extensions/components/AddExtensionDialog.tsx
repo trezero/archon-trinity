@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
 import { Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useToast } from "@/features/shared/hooks/useToast";
 import { Button, Input } from "@/features/ui/primitives";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/features/ui/primitives/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/features/ui/primitives/dialog";
 import { useAllExtensions, useLinkExtensions } from "../hooks/useExtensionQueries";
 import type { Extension } from "../types";
 
@@ -122,11 +122,7 @@ export function AddExtensionDialog({ open, onOpenChange, projectId, linkedExtens
         {/* Select all toggle */}
         {available.length > 0 && (
           <div className="flex items-center justify-between text-xs text-zinc-400">
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="hover:text-white transition-colors"
-            >
+            <button type="button" onClick={toggleAll} className="hover:text-white transition-colors">
               {selectedIds.size === available.length ? "Deselect all" : "Select all"}
             </button>
             <span>{selectedIds.size} selected</span>
@@ -135,70 +131,72 @@ export function AddExtensionDialog({ open, onOpenChange, projectId, linkedExtens
 
         {/* Extension list grouped by type */}
         <div className="max-h-[360px] overflow-y-auto space-y-4 pr-1">
-          {isLoadingExtensions && (
-            <p className="text-sm text-zinc-500 text-center py-8">Loading extensions...</p>
-          )}
-          {isExtensionsError && (
-            <p className="text-sm text-red-400 text-center py-8">Failed to load extensions.</p>
-          )}
+          {isLoadingExtensions && <p className="text-sm text-zinc-500 text-center py-8">Loading extensions...</p>}
+          {isExtensionsError && <p className="text-sm text-red-400 text-center py-8">Failed to load extensions.</p>}
           {!isLoadingExtensions && !isExtensionsError && available.length === 0 && (
             <p className="text-sm text-zinc-500 text-center py-8">
               {search ? "No extensions match your search." : "All extensions are already linked to this project."}
             </p>
           )}
 
-          {!isLoadingExtensions && !isExtensionsError && TYPE_ORDER.filter((t) => grouped[t]?.length).map((type) => (
-            <div key={type}>
-              <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-                {TYPE_LABELS[type] ?? type}
-              </h4>
-              <div className="space-y-1">
-                {grouped[type].map((ext) => (
-                  <button
-                    key={ext.id}
-                    type="button"
-                    onClick={() => toggleSelected(ext.id)}
-                    className={`w-full flex items-start gap-3 p-2.5 rounded-lg border text-left transition-colors ${
-                      selectedIds.has(ext.id)
-                        ? "border-cyan-500/50 bg-cyan-500/10"
-                        : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    <div
-                      className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
+          {!isLoadingExtensions &&
+            !isExtensionsError &&
+            TYPE_ORDER.filter((t) => grouped[t]?.length).map((type) => (
+              <div key={type}>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                  {TYPE_LABELS[type] ?? type}
+                </h4>
+                <div className="space-y-1">
+                  {grouped[type].map((ext) => (
+                    <button
+                      key={ext.id}
+                      type="button"
+                      onClick={() => toggleSelected(ext.id)}
+                      className={`w-full flex items-start gap-3 p-2.5 rounded-lg border text-left transition-colors ${
                         selectedIds.has(ext.id)
-                          ? "bg-cyan-500 border-cyan-500"
-                          : "border-zinc-600"
+                          ? "border-cyan-500/50 bg-cyan-500/10"
+                          : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
                       }`}
                     >
-                      {selectedIds.has(ext.id) && (
-                        <svg className="w-2.5 h-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white truncate">
-                          {ext.display_name || ext.name}
-                        </span>
-                        <span
-                          className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] rounded border ${
-                            TYPE_COLORS[ext.type] ?? "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"
-                          }`}
-                        >
-                          {ext.type}
-                        </span>
+                      <div
+                        className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
+                          selectedIds.has(ext.id) ? "bg-cyan-500 border-cyan-500" : "border-zinc-600"
+                        }`}
+                      >
+                        {selectedIds.has(ext.id) && (
+                          <svg
+                            className="w-2.5 h-2.5 text-black"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                            aria-label="Selected"
+                            role="img"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
                       </div>
-                      {ext.description && (
-                        <p className="text-xs text-zinc-400 mt-0.5 truncate">{ext.description}</p>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-white truncate">
+                            {ext.display_name || ext.name}
+                          </span>
+                          <span
+                            className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] rounded border ${
+                              TYPE_COLORS[ext.type] ?? "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"
+                            }`}
+                          >
+                            {ext.type}
+                          </span>
+                        </div>
+                        {ext.description && <p className="text-xs text-zinc-400 mt-0.5 truncate">{ext.description}</p>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* Footer */}
@@ -206,14 +204,11 @@ export function AddExtensionDialog({ open, onOpenChange, projectId, linkedExtens
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleAdd}
-            disabled={selectedIds.size === 0 || linkExtensions.isPending}
-          >
+          <Button onClick={handleAdd} disabled={selectedIds.size === 0 || linkExtensions.isPending}>
             <Plus className="w-4 h-4 mr-1.5" />
             {linkExtensions.isPending
               ? "Adding..."
-              : `Add ${selectedIds.size > 0 ? selectedIds.size + " " : ""}Extension${selectedIds.size !== 1 ? "s" : ""}`}
+              : `Add ${selectedIds.size > 0 ? `${selectedIds.size} ` : ""}Extension${selectedIds.size !== 1 ? "s" : ""}`}
           </Button>
         </div>
       </DialogContent>

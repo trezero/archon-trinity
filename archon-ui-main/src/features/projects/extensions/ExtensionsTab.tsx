@@ -1,10 +1,15 @@
-import { useState } from "react";
 import { Plus } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/features/ui/primitives";
+import { AddExtensionDialog } from "./components/AddExtensionDialog";
 import { SystemCard } from "./components/SystemCard";
 import { SystemExtensionList } from "./components/SystemExtensionList";
-import { AddExtensionDialog } from "./components/AddExtensionDialog";
-import { useInstallExtension, useProjectExtensions, useRemoveExtension, useUnlinkSystem } from "./hooks/useExtensionQueries";
+import {
+  useInstallExtension,
+  useProjectExtensions,
+  useRemoveExtension,
+  useUnlinkSystem,
+} from "./hooks/useExtensionQueries";
 
 interface ExtensionsTabProps {
   projectId: string;
