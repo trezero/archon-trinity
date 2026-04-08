@@ -14,6 +14,7 @@ import {
   Database,
   User,
   Cpu,
+  Package,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "../features/shared/hooks/useToast";
@@ -24,6 +25,7 @@ import { APIKeysSection } from "../components/settings/APIKeysSection";
 import { RAGSettings } from "../components/settings/RAGSettings";
 import { CodeExtractionSettings } from "../components/settings/CodeExtractionSettings";
 import { IDEGlobalRules } from "../components/settings/IDEGlobalRules";
+import { DefaultExtensionsSection } from "../components/settings/DefaultExtensionsSection";
 import { ButtonPlayground } from "../components/settings/ButtonPlayground";
 import { CollapsibleSettingsCard } from "../components/ui/CollapsibleSettingsCard";
 import { BugReportButton } from "../components/bug-report/BugReportButton";
@@ -211,6 +213,20 @@ export const SettingsPage = () => {
                 defaultExpanded={true}
               >
                 <IDEGlobalRules />
+              </CollapsibleSettingsCard>
+            </motion.div>
+          )}
+
+          {projectsEnabled && (
+            <motion.div variants={itemVariants}>
+              <CollapsibleSettingsCard
+                title="Default Extensions"
+                icon={Package}
+                accentColor="cyan"
+                storageKey="default-extensions"
+                defaultExpanded={false}
+              >
+                <DefaultExtensionsSection />
               </CollapsibleSettingsCard>
             </motion.div>
           )}
