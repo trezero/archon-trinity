@@ -578,15 +578,12 @@ echo
 
 ui_step 4 "Install slash commands"
 mkdir -p "$HOME/.claude/commands"
-if curl -sf "$ARCHON_MCP_URL/archon-setup.md" -o "$HOME/.claude/commands/archon-setup.md"; then
-  ui_success "Installed /archon-setup to ~/.claude/commands/archon-setup.md"
+if curl -sf "${ARCHON_MCP_URL}/archon-setup/commands.tar.gz" | tar xz -C "$HOME/.claude/commands/"; then
+  ui_success "Slash commands installed from registry"
 else
-  ui_warn "Could not download /archon-setup command file."
-fi
-if curl -sf "$ARCHON_MCP_URL/scan-projects.md" -o "$HOME/.claude/commands/scan-projects.md"; then
-  ui_success "Installed /scan-projects to ~/.claude/commands/scan-projects.md"
-else
-  ui_warn "Could not download /scan-projects command file."
+  ui_warn "Could not download commands from registry, trying individual files..."
+  curl -sf "$ARCHON_MCP_URL/archon-setup.md" -o "$HOME/.claude/commands/archon-setup.md" 2>/dev/null || true
+  curl -sf "$ARCHON_MCP_URL/scan-projects.md" -o "$HOME/.claude/commands/scan-projects.md" 2>/dev/null || true
 fi
 echo
 
