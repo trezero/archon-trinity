@@ -118,8 +118,9 @@ Once everything is running:
 1. **Test Web Crawling**: Go to http://localhost:3737 → Knowledge Base → "Crawl Website" → Enter a doc URL (such as https://ai.pydantic.dev/llms.txt)
 2. **Test Document Upload**: Knowledge Base → Upload a PDF
 3. **Test Projects**: Projects → Create a new project and add tasks
-4. **Test Chat**: Click the floating Archon button (bottom-right) or navigate to `/chat` — the AI assistant can search your knowledge base, analyze projects, and help prioritize work (requires the agents service: `docker compose --profile agents up -d`)
-5. **Integrate with your AI coding assistant**: MCP Dashboard → Copy connection config for your AI coding assistant
+4. **Test Extensions**: Projects → open a project → Extensions tab → click `+ Extension` to link skills, plugins, or commands to the project; Settings → Default Extensions to configure the template for new connections
+5. **Test Chat**: Click the floating Archon button (bottom-right) or navigate to `/chat` — the AI assistant can search your knowledge base, analyze projects, and help prioritize work (requires the agents service: `docker compose --profile agents up -d`)
+6. **Integrate with your AI coding assistant**: MCP Dashboard → Copy connection config for your AI coding assistant
 
 ## 🤖 Coding Agent Integration
 
@@ -168,6 +169,7 @@ Once connected, agents have access to these tools:
 | `rag_read_full_page` | Read complete page content |
 | `find_projects` / `manage_project` | Project management |
 | `find_tasks` / `manage_task` | Task management |
+| `find_extensions` / `manage_extensions` | Query and manage skills, plugins, and commands |
 
 ### Typical Agent Workflow
 
@@ -333,8 +335,7 @@ To upgrade Archon to the latest version:
 - **Inline Ingestion**: Coding agents can read local project files and ingest them directly into the knowledge base via MCP tools — no manual upload needed
 - **Code Example Extraction**: Automatically identifies and indexes code examples from documentation for enhanced search
 - **Vector Search**: Advanced semantic search with contextual embeddings for precise knowledge retrieval
-- **Project-Scoped Search**: Filter search results by project so
- different repos' docs don't pollute each other
+- **Project-Scoped Search**: Filter search results by project so different repos' docs don't pollute each other
 - **Source Management**: Organize knowledge by source, type, and tags for easy filtering. Add, sync, and delete sources programmatically
 
 ### 🤖 AI Integration
@@ -354,6 +355,23 @@ To upgrade Archon to the latest version:
 - **Project Enrichment**: Add goals, relevance, and AI-suggested categories to projects for better prioritization
 - **Document Management**: Version-controlled documents with collaborative editing capabilities
 - **Progress Tracking**: Real-time updates and status management across all project activities
+- **Project Extensions**: Link skills, plugins, and commands directly to a project from the Extensions tab — the `+ Extension` dialog lets you search and multi-select from all available extensions
+
+### 🧩 Extensions Management
+
+- **Three Extension Types**: Manage **skills** (reusable Claude Code workflows), **plugins** (MCP servers and integrations), and **commands** (Claude Code slash commands) from a single interface
+- **Registry Distribution**: Extensions are served from Archon's built-in registry and distributed to connected AI IDEs automatically
+- **Project-Scoped Linking**: Attach specific extensions to individual projects so each project's AI context gets the right tools; use the `+ Extension` dialog to select from all available extensions at once
+- **Default Extensions Template**: Configure which extensions are automatically installed on every new application that connects via `/archon-setup` — managed in Settings > Default Extensions
+- **Auto-Sync to IDEs**: Run `/archon-extension-sync` inside Claude Code to pull the latest extensions from Archon into your local `~/.claude/` directory; setup scripts do this automatically on first connect
+- **MCP Tools for Agents**: `find_extensions` and `manage_extensions` let coding agents query and manage extension state programmatically
+
+### ⚙️ Agent Work Orders *(optional)*
+
+- **Workflow Execution Engine**: Orchestrate multi-step AI coding workflows using Claude Code CLI as the execution backend (requires `--profile work-orders` or `make dev-work-orders`)
+- **Repository Management**: Agents can clone, branch, and operate on git repositories as part of automated workflows
+- **SSE Progress Updates**: Real-time streaming updates as workflow steps execute
+- **Standalone Microservice**: Runs independently on port 8053 so it doesn't add overhead to the core stack
 
 ### 💬 AI Chat Assistant
 
