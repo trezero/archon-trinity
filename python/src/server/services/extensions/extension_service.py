@@ -371,8 +371,13 @@ class ExtensionService:
         Extensions with is_default = True are installed on every new Archon-connected application.
 
         Raises:
-            RuntimeError: If the extension_id does not exist or update fails.
+            ValueError: If the extension_id does not exist.
+            RuntimeError: If the database update fails.
         """
+        ext = self.get_extension(extension_id)
+        if ext is None:
+            raise ValueError(f"Extension '{extension_id}' not found")
+
         response = (
             self.supabase_client.table(EXTENSIONS_TABLE)
             .update({"is_default": is_default, "updated_at": datetime.now(UTC).isoformat()})

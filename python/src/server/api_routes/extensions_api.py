@@ -418,7 +418,7 @@ async def set_extension_default(extension_id: str, request: SetExtensionDefaultR
         extension_service = ExtensionService()
         extension = extension_service.set_extension_default(extension_id, request.is_default)
         return extension
-    except RuntimeError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail={"error": str(e)}) from e
     except Exception as e:
         logfire.error(f"Failed to set is_default | extension_id={extension_id} | error={e}", exc_info=True)

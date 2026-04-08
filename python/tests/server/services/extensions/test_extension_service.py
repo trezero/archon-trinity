@@ -875,29 +875,73 @@ class TestSetExtensionDefault:
     def test_sets_is_default_true(self, mock_supabase):
         """set_extension_default should update is_default on the extension."""
         extension_id = "ext-uuid-1"
+        existing = {"id": extension_id, "name": "my-skill", "content": "# content", "content_hash": "abc", "current_version": 1}
         updated = {"id": extension_id, "name": "my-skill", "is_default": True}
 
-        builder = MagicMock()
-        for method in ("update", "eq"):
-            getattr(builder, method).return_value = builder
-        builder.execute.return_value = MagicMock(data=[updated])
-        mock_supabase.table.side_effect = lambda name: builder
+        get_builder = MagicMock()
+        get_builder.select.return_value = get_builder
+        get_builder.eq.return_value = get_builder
+        get_builder.execute.return_value = MagicMock(data=[existing])
 
+        update_builder = MagicMock()
+        update_builder.update.return_value = update_builder
+        update_builder.eq.return_value = update_builder
+        update_builder.execute.return_value = MagicMock(data=[updated])
+
+        call_count = {"n": 0}
+
+        def _table(name):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return get_builder
+            return update_builder
+
+        mock_supabase.table.side_effect = _table
         service = ExtensionService(supabase_client=mock_supabase)
         result = service.set_extension_default(extension_id, is_default=True)
 
         assert result["is_default"] is True
-        update_kwargs = builder.update.call_args[0][0]
+        update_kwargs = update_builder.update.call_args[0][0]
         assert update_kwargs["is_default"] is True
 
-    def test_raises_runtime_error_when_extension_not_found(self, mock_supabase):
-        """set_extension_default should raise RuntimeError if update returns no data."""
-        builder = MagicMock()
-        for method in ("update", "eq"):
-            getattr(builder, method).return_value = builder
-        builder.execute.return_value = MagicMock(data=[])
-        mock_supabase.table.side_effect = lambda name: builder
+    def test_raises_value_error_when_extension_not_found(self, mock_supabase):
+        """set_extension_default should raise ValueError when extension does not exist."""
+        get_builder = MagicMock()
+        get_builder.select.return_value = get_builder
+        get_builder.eq.return_value = get_builder
+        get_builder.execute.return_value = MagicMock(data=[])
 
+        mock_supabase.table.side_effect = lambda name: get_builder
         service = ExtensionService(supabase_client=mock_supabase)
-        with pytest.raises(RuntimeError, match="Failed to update"):
+
+        with pytest.raises(ValueError, match="not found"):
             service.set_extension_default("bad-id", is_default=True)
+
+    def test_raises_runtime_error_on_db_failure(self, mock_supabase):
+        """set_extension_default should raise RuntimeError if update returns no data (after finding extension)."""
+        extension_id = "ext-uuid-1"
+        existing = {"id": extension_id, "name": "my-skill", "content": "# content", "content_hash": "abc", "current_version": 1}
+
+        get_builder = MagicMock()
+        get_builder.select.return_value = get_builder
+        get_builder.eq.return_value = get_builder
+        get_builder.execute.return_value = MagicMock(data=[existing])
+
+        update_builder = MagicMock()
+        update_builder.update.return_value = update_builder
+        update_builder.eq.return_value = update_builder
+        update_builder.execute.return_value = MagicMock(data=[])
+
+        call_count = {"n": 0}
+
+        def _table(name):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return get_builder
+            return update_builder
+
+        mock_supabase.table.side_effect = _table
+        service = ExtensionService(supabase_client=mock_supabase)
+
+        with pytest.raises(RuntimeError, match="Failed to update"):
+            service.set_extension_default(extension_id, is_default=True)
