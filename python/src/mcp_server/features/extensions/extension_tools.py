@@ -90,6 +90,7 @@ def register_extension_tools(mcp: FastMCP):
         query: str | None = None,
         project_id: str | None = None,
         include_content: bool = False,
+        extension_type: str | None = None,
     ) -> str:
         """
         List, search, and retrieve extensions.
@@ -99,6 +100,7 @@ def register_extension_tools(mcp: FastMCP):
             query: Search extensions by name or description keyword
             project_id: List extensions for a specific project (includes installation state)
             include_content: Include full extension content in list results (default: False)
+            extension_type: Filter extensions by type: "skill", "command", or "plugin"
 
         Returns:
             JSON with extension(s) data
@@ -133,7 +135,12 @@ def register_extension_tools(mcp: FastMCP):
 
                 # Extensions for a specific project
                 if project_id:
-                    response = await client.get(urljoin(api_url, f"/api/projects/{project_id}/extensions"))
+                    project_params: dict = {}
+                    if extension_type:
+                        project_params["type"] = extension_type
+                    response = await client.get(
+                        urljoin(api_url, f"/api/projects/{project_id}/extensions"), params=project_params
+                    )
 
                     if response.status_code == 200:
                         data = response.json()
@@ -149,7 +156,10 @@ def register_extension_tools(mcp: FastMCP):
                         return MCPErrorFormatter.from_http_error(response, "list project extensions")
 
                 # List all extensions
-                response = await client.get(urljoin(api_url, "/api/extensions"))
+                params: dict = {}
+                if extension_type:
+                    params["type"] = extension_type
+                response = await client.get(urljoin(api_url, "/api/extensions"), params=params)
 
                 if response.status_code == 200:
                     data = response.json()
@@ -195,6 +205,7 @@ def register_extension_tools(mcp: FastMCP):
         # For upload / validate
         extension_content: str | None = None,
         extension_name: str | None = None,
+        extension_type: str | None = None,
         # For install / remove
         extension_id: str | None = None,
         system_id: str | None = None,
@@ -212,6 +223,7 @@ def register_extension_tools(mcp: FastMCP):
             project_id: Project ID for sync/install/remove context
             extension_content: Full extension file content (for upload/validate)
             extension_name: Extension name override (for upload, otherwise parsed from content)
+            extension_type: Extension type for upload: "skill" (default), "command", or "plugin"
             extension_id: Extension ID (for install/remove)
             system_id: System ID (for install/remove)
 
@@ -235,7 +247,9 @@ def register_extension_tools(mcp: FastMCP):
                     return await _handle_validate(client, api_url, extension_content)
 
                 elif action == "upload":
-                    return await _handle_upload(client, api_url, extension_content, extension_name)
+                    return await _handle_upload(
+                        client, api_url, extension_content, extension_name, project_id, extension_type
+                    )
 
                 elif action == "sync":
                     return await _handle_sync(
@@ -286,7 +300,12 @@ async def _handle_validate(client: httpx.AsyncClient, api_url: str, extension_co
 
 
 async def _handle_upload(
-    client: httpx.AsyncClient, api_url: str, extension_content: str | None, extension_name: str | None
+    client: httpx.AsyncClient,
+    api_url: str,
+    extension_content: str | None,
+    extension_name: str | None,
+    project_id: str | None = None,
+    extension_type: str | None = None,
 ) -> str:
     """Upload or update an extension from content."""
     if not extension_content:
@@ -312,6 +331,10 @@ async def _handle_upload(
         "content": extension_content,
         "created_by": "mcp-upload",
     }
+    if project_id:
+        create_payload["skill_groups"] = [project_id]
+    if extension_type:
+        create_payload["type"] = extension_type
 
     # Try to create
     response = await client.post(urljoin(api_url, "/api/extensions"), json=create_payload)
