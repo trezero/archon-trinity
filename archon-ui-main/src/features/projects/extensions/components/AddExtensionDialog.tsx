@@ -25,9 +25,11 @@ const TYPE_COLORS: Record<string, string> = {
   plugin: "bg-amber-500/20 text-amber-400 border-amber-500/30",
 };
 
+const TYPE_ORDER = ["skill", "command", "plugin"] as const;
+
 export function AddExtensionDialog({ open, onOpenChange, projectId, linkedExtensions }: AddExtensionDialogProps) {
   const { showToast } = useToast();
-  const { data: allExtData } = useAllExtensions();
+  const { data: allExtData, isLoading: isLoadingExtensions, isError: isExtensionsError } = useAllExtensions();
   const linkExtensions = useLinkExtensions();
 
   const [search, setSearch] = useState("");
@@ -57,8 +59,6 @@ export function AddExtensionDialog({ open, onOpenChange, projectId, linkedExtens
     }
     return groups;
   }, [available]);
-
-  const typeOrder = ["skill", "command", "plugin"];
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -135,13 +135,19 @@ export function AddExtensionDialog({ open, onOpenChange, projectId, linkedExtens
 
         {/* Extension list grouped by type */}
         <div className="max-h-[360px] overflow-y-auto space-y-4 pr-1">
-          {available.length === 0 && (
+          {isLoadingExtensions && (
+            <p className="text-sm text-zinc-500 text-center py-8">Loading extensions...</p>
+          )}
+          {isExtensionsError && (
+            <p className="text-sm text-red-400 text-center py-8">Failed to load extensions.</p>
+          )}
+          {!isLoadingExtensions && !isExtensionsError && available.length === 0 && (
             <p className="text-sm text-zinc-500 text-center py-8">
               {search ? "No extensions match your search." : "All extensions are already linked to this project."}
             </p>
           )}
 
-          {typeOrder.filter((t) => grouped[t]?.length).map((type) => (
+          {!isLoadingExtensions && !isExtensionsError && TYPE_ORDER.filter((t) => grouped[t]?.length).map((type) => (
             <div key={type}>
               <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
                 {TYPE_LABELS[type] ?? type}
