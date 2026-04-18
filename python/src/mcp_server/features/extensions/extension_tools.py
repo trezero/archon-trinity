@@ -543,9 +543,12 @@ async def _handle_bootstrap(
     project_id: str | None,
 ) -> str:
     """Register the system and return extension metadata (content delivered via HTTP tarball)."""
-    # Fetch extensions without content — content is downloaded separately via
-    # /archon-setup/extensions.tar.gz to avoid bloating the LLM context window.
-    response = await client.get(urljoin(api_url, "/api/extensions"), params={"include_content": False})
+    # Fetch only default extensions — these are the ones the setup script installs
+    # via /archon-setup/extensions.tar.gz. Fetching all would misrepresent local state.
+    response = await client.get(
+        urljoin(api_url, "/api/extensions"),
+        params={"include_content": False, "is_default": True},
+    )
 
     if response.status_code != 200:
         return MCPErrorFormatter.from_http_error(response, "fetch extensions for bootstrap")
@@ -565,9 +568,8 @@ async def _handle_bootstrap(
     # Register system with project when both fingerprint and project_id are provided
     system = None
     if system_fingerprint and project_id:
-        # The setup script downloads ALL registry extensions via tarball before
-        # bootstrap runs, so report them as locally installed so the sync endpoint
-        # can mark them as "installed" in archon_system_extensions.
+        # Report only default extensions as locally installed — these match what
+        # the setup script actually downloaded via the tarball.
         local_extensions = [
             {"name": e.get("name", ""), "content_hash": e.get("content_hash", "")}
             for e in raw_extensions
