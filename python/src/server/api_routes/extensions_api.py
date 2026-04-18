@@ -102,15 +102,16 @@ async def list_extensions(
     include_content: bool = Query(False),
     skill_group: str | None = Query(None),
     type: str | None = Query(None),
+    is_default: bool | None = Query(None),
 ):
     """List all extensions. Pass ?include_content=true to include full extension content."""
     try:
         logfire.debug(f"Listing all extensions | include_content={include_content}")
         service = ExtensionService()
         if include_content:
-            extensions = service.list_extensions_full(skill_group=skill_group, type=type)
+            extensions = service.list_extensions_full(skill_group=skill_group, type=type, is_default=is_default)
         else:
-            extensions = service.list_extensions(skill_group=skill_group, type=type)
+            extensions = service.list_extensions(skill_group=skill_group, type=type, is_default=is_default)
         return {"extensions": extensions, "count": len(extensions)}
     except HTTPException:
         raise

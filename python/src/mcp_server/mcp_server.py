@@ -893,7 +893,11 @@ async def http_download_plugin(request: Request):
 
 
 async def http_download_extensions(request: Request):
-    """Return all extensions as a compressed tar archive (skills/{name}/SKILL.md)."""
+    """Return default extensions as a compressed tar archive (skills/{name}/SKILL.md).
+
+    Only extensions with is_default=True are included so that new project setups
+    receive only the curated default set configured in Archon Settings.
+    """
     import io
     import tarfile
 
@@ -905,7 +909,10 @@ async def http_download_extensions(request: Request):
     try:
         api_url = get_api_url()
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{api_url}/api/extensions", params={"include_content": True})
+            response = await client.get(
+                f"{api_url}/api/extensions",
+                params={"include_content": True, "is_default": True},
+            )
             if response.status_code != 200:
                 return JSONResponse({"error": "failed to fetch extensions from API"}, status_code=502)
             extensions = response.json().get("extensions", [])

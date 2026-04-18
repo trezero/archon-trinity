@@ -101,12 +101,18 @@ class ExtensionService:
 
         return extension
 
-    def list_extensions(self, skill_group: str | None = None, type: str | None = None) -> list[dict[str, Any]]:
+    def list_extensions(
+        self,
+        skill_group: str | None = None,
+        type: str | None = None,
+        is_default: bool | None = None,
+    ) -> list[dict[str, Any]]:
         """List all extensions without the full content field.
 
         Args:
             skill_group: Optional skill group tag to filter by.
             type: Optional extension type to filter by ('skill' or 'command').
+            is_default: When True, only return extensions marked as default.
 
         Returns:
             List of extension metadata dicts (id, name, description, version, type, timestamps).
@@ -119,6 +125,8 @@ class ExtensionService:
             query = query.contains("skill_groups", [skill_group])
         if type is not None:
             query = query.eq("type", type)
+        if is_default is not None:
+            query = query.eq("is_default", is_default)
         response = query.order("name").execute()
         return response.data
 
@@ -152,12 +160,18 @@ class ExtensionService:
         response = query.order("name").execute()
         return response.data
 
-    def list_extensions_full(self, skill_group: str | None = None, type: str | None = None) -> list[dict[str, Any]]:
+    def list_extensions_full(
+        self,
+        skill_group: str | None = None,
+        type: str | None = None,
+        is_default: bool | None = None,
+    ) -> list[dict[str, Any]]:
         """List all extensions including full content (used by sync endpoint).
 
         Args:
             skill_group: Optional skill group tag to filter by.
             type: Optional extension type to filter by ('skill' or 'command').
+            is_default: When True, only return extensions marked as default.
 
         Returns:
             List of full extension dicts including the content field.
@@ -167,6 +181,8 @@ class ExtensionService:
             query = query.contains("skill_groups", [skill_group])
         if type is not None:
             query = query.eq("type", type)
+        if is_default is not None:
+            query = query.eq("is_default", is_default)
         response = query.order("name").execute()
         return response.data
 
