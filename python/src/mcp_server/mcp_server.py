@@ -798,12 +798,17 @@ async def http_claude_md_snippet(request: Request) -> PlainTextResponse:
 
 def _render_setup_sh(api_url: str, mcp_url: str) -> str:
     """Generate archonSetup.sh with API and MCP URLs injected."""
+    from urllib.parse import urlparse
+
     for parent in Path(__file__).resolve().parents:
         candidate = parent / "integrations" / "claude-code" / "setup" / "archonSetup.sh"
         if candidate.exists():
             content = candidate.read_text()
             content = content.replace("{{ARCHON_API_URL}}", api_url)
             content = content.replace("{{ARCHON_MCP_URL}}", mcp_url)
+            # Inject serving hostname as the default for the manual-entry fallback prompt
+            default_host = urlparse(mcp_url).hostname or "localhost"
+            content = content.replace("{{DEFAULT_HOST}}", default_host)
             return content
     raise FileNotFoundError("archonSetup.sh template not found")
 

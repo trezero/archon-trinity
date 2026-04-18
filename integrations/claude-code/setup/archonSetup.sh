@@ -9,9 +9,11 @@ ARCHON_MCP_URL="{{ARCHON_MCP_URL}}"
 
 # If placeholders were not substituted, ask for the Archon host
 if [ "$ARCHON_API_URL" = "{{ARCHON_API_URL}}" ]; then
+  DEFAULT_HOST="{{DEFAULT_HOST}}"
   printf "  URLs not pre-configured. Please enter your Archon server address.\n\n"
-  printf "  Archon host (e.g. 192.168.1.10 or localhost): "
+  printf "  Archon host [%s]: " "$DEFAULT_HOST"
   read -r ARCHON_HOST < /dev/tty
+  ARCHON_HOST="${ARCHON_HOST:-$DEFAULT_HOST}"
   ARCHON_API_URL="http://${ARCHON_HOST}:8181"
   ARCHON_MCP_URL="http://${ARCHON_HOST}:8051"
   printf "\n  Using API: %s\n  Using MCP: %s\n\n" "$ARCHON_API_URL" "$ARCHON_MCP_URL"
