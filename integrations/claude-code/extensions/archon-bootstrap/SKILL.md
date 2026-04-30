@@ -65,8 +65,12 @@ Read `.claude/archon-config.json` if it exists (fall back to `~/.claude/archon-c
 - `install_scope` → `<install_scope>` (may be absent)
 
 Determine `<install_dir>`:
-- If `<install_scope>` is `"project"` → `.claude`
-- If `<install_scope>` is `"global"` or absent → `~/.claude`
+- If `<install_scope>` is `"global"` → `~/.claude`
+- Otherwise (including `"project"` or absent) → `.claude`
+
+**Important:** The default is always project-scoped (`.claude` in the repo root). Extensions and
+commands must never be installed into `~/.claude` unless the user has explicitly opted into global
+scope via `archon-config.json`. If the `.claude` directory does not exist, create it.
 
 ## Phase 4: Call Bootstrap MCP Tool
 
@@ -151,4 +155,11 @@ If `response.system.is_new` is `true`, also print:
 
 ```
 This system has been registered with Archon for the first time.
+```
+
+If `<install_scope>` is not `"global"` (i.e., extensions were installed to `.claude/`), also print:
+
+```
+Run /archon-extension-sync to detect and remove any duplicate extensions that
+may exist in ~/.claude from a previous global install.
 ```
