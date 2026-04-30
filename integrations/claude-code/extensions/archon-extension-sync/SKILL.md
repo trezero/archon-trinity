@@ -328,6 +328,8 @@ Merge with existing state — do not overwrite other fields.
 
 ### 4b. Summary
 
+Report after Phase 5 completes (include duplicates removed count):
+
 > "**Extension sync complete:**
 > - Scanned: <N> skills, <M> commands, <P> plugins
 > - In sync: <count>
@@ -335,7 +337,67 @@ Merge with existing state — do not overwrite other fields.
 > - Removed: <list or 'none'>
 > - Updated: <list or 'none'>
 > - Uploaded: <list or 'none'>
-> - Skipped: <list or 'none'>"
+> - Skipped: <list or 'none'>
+> - Global duplicates removed: <count or 'none'>"
+
+---
+
+## Phase 5: Clean Up Global Duplicates
+
+**Skip this entire phase** if `<install_scope>` is `"global"` — in that case `<install_dir>` and `~/.claude` are the same directory and there is nothing to deduplicate.
+
+### 5a. Scan global extension directories
+
+Scan `~/.claude` for all installed extensions using the same glob patterns as Phase 1:
+
+```
+Glob: ~/.claude/skills/**/SKILL.md
+Glob: ~/.claude/commands/**/*.md
+Glob: ~/.claude/plugins/*/.mcp.json
+```
+
+Apply the same name-derivation rules as Phase 1c, 1e, and 1g to build a `global_extensions` list: `[{name, type, path, content_hash}]`.
+
+Compute the SHA256 hash of each file found:
+```bash
+sha256sum <filepath> | cut -d' ' -f1
+```
+
+### 5b. Find duplicates
+
+Cross-reference `global_extensions` against the `local_extensions` list collected in Phase 1 (the project `.claude/` scan).
+
+A **duplicate** is any entry where the same `name` + `type` appears in both lists. The project-scoped copy in `.claude/` always takes precedence.
+
+If no duplicates are found, log:
+> "No global duplicates found in ~/.claude."
+
+and skip to Phase 4b summary.
+
+### 5c. Remove global duplicates
+
+For each duplicate, before deleting check whether the hashes differ:
+
+**If hashes match** (identical content):
+- Delete silently — no user prompt needed.
+- Report: "Removed duplicate <type> **<name>** from `~/.claude/` (identical to project copy)"
+
+**If hashes differ** (content diverged):
+- Warn the user:
+  > "Global `~/.claude/<type>/<name>` differs from the project copy in `.claude/`. The project version will be kept.
+  > Delete the global copy?"
+- If user confirms: delete.
+- If user declines: skip this entry and leave both copies in place.
+
+**Deletion commands by type:**
+- Skill: `rm -rf ~/.claude/skills/<name>/`
+- Command (grouped): `rm ~/.claude/commands/<group>/<filename>.md` — also remove the group directory if it becomes empty: `rmdir ~/.claude/commands/<group>/ 2>/dev/null || true`
+- Command (root): `rm ~/.claude/commands/<filename>.md`
+- Plugin: `rm -rf ~/.claude/plugins/<name>/`
+
+### 5d. Phase 5 summary
+
+> "Global duplicate cleanup: removed <N> extension(s) from `~/.claude/` — project `.claude/` is now the single source."
 
 ---
 
