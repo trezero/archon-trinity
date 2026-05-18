@@ -2,10 +2,9 @@
 Postman API client with retry logic and error handling.
 """
 
-import json
-import os
-import subprocess
 import warnings
+
+import httpx
 
 from .config import PostmanConfig
 from .exceptions import NetworkError, TimeoutError, create_exception_from_response
@@ -116,131 +115,30 @@ class PostmanClient:
             PostmanAPIError: For other API errors
         """
         url = f"{self.config.base_url}{endpoint}"
-
-        # Build curl command
-        curl_cmd = ['curl', '-s', '-k', '-i']  # silent, skip cert verification, include headers
-
-        # Add HTTP method for non-GET requests
-        if method.upper() != 'GET':
-            curl_cmd.extend(['-X', method.upper()])
-
-        # Add JSON body if provided (before headers to avoid duplicates)
-        has_json_body = 'json' in kwargs and kwargs['json']
-        if has_json_body:
-            json_data = json.dumps(kwargs['json'])
-            curl_cmd.extend(['-d', json_data])
-            curl_cmd.extend(['-H', 'Content-Type: application/json'])
-
-        # Add headers (skip Content-Type if we already added it for JSON)
-        for key, value in self.config.headers.items():
-            if key.lower() == 'content-type' and has_json_body:
-                continue  # Skip duplicate Content-Type
-            curl_cmd.extend(['-H', f"{key}: {value}"])
-
-        # Add timeout
         timeout = kwargs.get('timeout', self.config.timeout)
-        curl_cmd.extend(['--max-time', str(timeout)])
 
-        # Add URL
-        curl_cmd.append(url)
+        json_body = kwargs.get('json')
+        headers = dict(self.config.headers)
+        if json_body is None:
+            headers.pop('Content-Type', None)
 
-        def execute_curl():
-            """Execute curl command and return parsed response."""
+        def execute_request():
             try:
-                env = os.environ.copy()
-
-                result = subprocess.run(
-                    curl_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout + 5,  # Add buffer to subprocess timeout
-                    env=env
-                )
-
-                if result.returncode != 0:
-                    stderr = result.stderr.strip() if result.stderr else ""
-                    stdout = result.stdout.strip() if result.stdout else ""
-                    error_msg = stderr or stdout or "Unknown curl error"
-                    raise NetworkError(
-                        message=f"Curl failed (exit code {result.returncode}): {error_msg}\n"
-                                f"Command: {' '.join(curl_cmd[:4])}... {url}"
+                with httpx.Client(timeout=timeout, verify=False, trust_env=False) as client:
+                    return client.request(
+                        method.upper(),
+                        url,
+                        headers=headers,
+                        json=json_body,
                     )
-
-                # Parse response (headers + body)
-                output = result.stdout
-                if not output:
-                    raise NetworkError(message="Empty response from curl")
-
-                # Split headers and body
-                parts = output.split('\r\n\r\n', 1)
-                if len(parts) < 2:
-                    parts = output.split('\n\n', 1)
-
-                if len(parts) < 2:
-                    raise NetworkError(message="Invalid response format from curl")
-
-                headers_text, body = parts[0], parts[1]
-
-                # Check if body contains another HTTP response (common with proxies/HTTP2)
-                if body.strip().startswith('HTTP/'):
-                    # The body is actually another HTTP response - parse it instead
-                    nested_parts = body.split('\n\n', 1)
-                    if len(nested_parts) >= 2:
-                        headers_text = nested_parts[0]
-                        body = nested_parts[1] if len(nested_parts) > 1 else ""
-
-                # Extract status code from headers
-                status_line = headers_text.split('\n')[0]
-                status_parts = status_line.split()
-                if len(status_parts) < 2:
-                    raise NetworkError(message=f"Invalid HTTP status line: {status_line}")
-                status_code = int(status_parts[1])
-
-                # Parse response headers
-                response_headers = {}
-                for line in headers_text.split('\n')[1:]:
-                    if ':' in line:
-                        key, value = line.split(':', 1)
-                        response_headers[key.strip()] = value.strip()
-
-                # Create a mock response object for compatibility
-                class MockResponse:
-                    def __init__(self, status_code, headers, body):
-                        self.status_code = status_code
-                        self.headers = headers
-                        self._body = body
-
-                    def json(self):
-                        return json.loads(self._body) if self._body else {}
-
-                return MockResponse(status_code, response_headers, body)
-
-            except subprocess.TimeoutExpired as e:
+            except httpx.TimeoutException as e:
                 raise TimeoutError(timeout_seconds=timeout) from e
-            except json.JSONDecodeError as e:
-                # Better error for empty/invalid responses
-                error_msg = (
-                    "Received invalid JSON response from Postman API.\n"
-                    "This usually means:\n"
-                    "  - The endpoint returned no data or empty response\n"
-                    "  - Network connectivity issue\n"
-                    "  - The API endpoint might not exist\n"
-                    f"\nTried to access: {url}\n"
-                    "\nTroubleshooting:\n"
-                    "  - Check Postman API status: https://status.postman.com/"
-                )
-                raise NetworkError(message=error_msg) from e
-            except Exception as e:
-                if isinstance(e, NetworkError | TimeoutError):
-                    raise
+            except httpx.RequestError as e:
                 raise NetworkError(message=f"Request failed: {str(e)}", original_error=e) from e
 
         try:
-            # Use retry handler
-            response = self.retry_handler.execute(execute_curl)
-        except TimeoutError:
-            raise
-        except NetworkError:
+            response = self.retry_handler.execute(execute_request)
+        except (TimeoutError, NetworkError):
             raise
         except Exception as e:
             raise NetworkError(

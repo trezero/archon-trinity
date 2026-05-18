@@ -68,7 +68,7 @@ class PostmanService:
         """Add or update a request in a collection folder. Creates the folder if needed."""
         client = await self._get_client()
         collection = client.get_collection(collection_uid)
-        items = collection.get("collection", {}).get("item", [])
+        items = collection.get("item", [])
 
         # Find or create folder
         folder = None
@@ -94,13 +94,22 @@ class PostmanService:
 
         request_item: dict[str, Any] = {"name": request_name, "request": postman_request}
 
-        # Add test script as event if provided
+        # Attach pre-request and test scripts as Postman events if provided
+        events: list[dict[str, Any]] = []
+        pre_request_script = request_data.get("pre_request_script")
+        if pre_request_script:
+            events.append({
+                "listen": "prerequest",
+                "script": {"type": "text/javascript", "exec": pre_request_script.split("\n")},
+            })
         test_script = request_data.get("test_script")
         if test_script:
-            request_item["event"] = [{
+            events.append({
                 "listen": "test",
                 "script": {"type": "text/javascript", "exec": test_script.split("\n")},
-            }]
+            })
+        if events:
+            request_item["event"] = events
 
         if existing_idx is not None:
             folder["item"][existing_idx] = request_item
@@ -109,7 +118,7 @@ class PostmanService:
             folder["item"].append(request_item)
             logger.info(f"Added request | folder={folder_name} | name={request_name}")
 
-        collection["collection"]["item"] = items
+        collection["item"] = items
         client.update_collection(collection_uid, collection)
 
     async def upsert_environment(self, env_name: str, variables: dict[str, str]) -> dict[str, Any]:
@@ -119,6 +128,8 @@ class PostmanService:
 
         existing = None
         for env in envs:
+            if not isinstance(env, dict):
+                continue
             if env.get("name") == env_name:
                 existing = env
                 break
@@ -126,7 +137,7 @@ class PostmanService:
         values = [{"key": k, "value": v, "enabled": True} for k, v in variables.items()]
 
         if existing:
-            result = client.update_environment(existing["uid"], {"name": env_name, "values": values})
+            result = client.update_environment(existing["uid"], name=env_name, values=values)
             logger.info(f"Updated environment | name={env_name}")
         else:
             result = client.create_environment(env_name, variables)
@@ -138,7 +149,7 @@ class PostmanService:
         """Return a dict of folder_name -> list of {name, method, url} for dedup checking."""
         client = await self._get_client()
         collection = client.get_collection(collection_uid)
-        items = collection.get("collection", {}).get("item", [])
+        items = collection.get("item", [])
 
         structure: dict[str, list[dict[str, str]]] = {}
         for item in items:
@@ -163,7 +174,7 @@ class PostmanService:
         postman_req: dict[str, Any] = {
             "method": request_data.get("method", "GET"),
             "header": [{"key": k, "value": v} for k, v in request_data.get("headers", {}).items()],
-            "url": {"raw": url},
+            "url": url,
             "description": request_data.get("description", ""),
         }
 
